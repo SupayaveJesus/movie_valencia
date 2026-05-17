@@ -78,3 +78,16 @@ generated_plugin_registrant.*
 # OS specific
 Thumbs.db
 .DS_Store
+
+# IDE & Xcode specific (NO versionables)
+*.pbxproj
+*.xcscheme/
+*.xcworkspacedata
+ios/**/IDEWorkspaceChecks.plist
+macos/**/IDEWorkspaceChecks.plist
+
+# Generated IDE files
+*.xcconfig (excepto los que muestres en repo)
+
+# Local workspace settings
+.idea/
