@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- TMDB se consume por HTTPs desde la app principal, por eso Android debe
+         declarar explícitamente el permiso de red. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="practico4_movies"
         android:name="${applicationName}"

@@ -1,86 +1,202 @@
 import 'package:dio/dio.dart';
+
 import '../models/pelicula.dart';
 
+/// Encapsula el acceso a TMDB.
+///
+/// Este servicio concentra tres decisiones para mantener el resto de la UI
+/// simple:
+/// 1. conoce los endpoints y parámetros de TMDB,
+/// 2. transforma JSON dinámico en modelos tipados del proyecto,
+/// 3. traduce errores de red a mensajes comprensibles para la interfaz.
 class TmdbService {
-  final Dio _dio = Dio();
+  TmdbService({Dio? dio})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 10),
+            ),
+          );
 
-  final String _apiKey = 'TU_API_KEY_AQUI';
-  final String _baseUrl = 'https://api.themoviedb.org/3';
-  final String _imagenUrl = 'https://image.tmdb.org/t/p/w500';
+  final Dio _dio;
 
-  Future<List<dynamic>> buscarPeliculas(String titulo, String anio) async {
-    final respuesta = await _dio.get(
-      '$_baseUrl/search/movie',
-      queryParameters: {
-        'api_key': _apiKey,
-        'query': titulo,
-        'language': 'es-ES',
-        if (anio.isNotEmpty) 'year': anio,
-      },
-    );
+  // Limitación temporal del proyecto: la API key ya venía hardcodeada y se
+  // conserva así para no romper la ejecución actual. Idealmente debería vivir
+  // en una configuración segura por ambiente.
+  static const String _apiKey = 'da66d27dce142448651778917bf514a7';
+  static const String _baseUrl = 'https://api.themoviedb.org/3';
+  static const String _imagenUrl = 'https://image.tmdb.org/t/p/w500';
 
-    return respuesta.data['results'];
+  /// Busca películas por título y opcionalmente filtra por año.
+  ///
+  /// Devuelve modelos livianos porque la pantalla de búsqueda solo necesita
+  /// renderizar lista + navegación. El detalle completo se resuelve después,
+  /// recién cuando el usuario entra a una película específica.
+  Future<List<PeliculaResumen>> buscarPeliculas(
+    String titulo,
+    String anio,
+  ) async {
+    final tituloNormalizado = titulo.trim();
+    final anioNormalizado = anio.trim();
+
+    if (tituloNormalizado.isEmpty) {
+      throw ArgumentError('Debes ingresar un título para buscar.');
+    }
+
+    try {
+      final respuesta = await _dio.get(
+        '$_baseUrl/search/movie',
+        queryParameters: {
+          'api_key': _apiKey,
+          'query': tituloNormalizado,
+          'language': 'es-ES',
+          if (anioNormalizado.isNotEmpty) 'year': anioNormalizado,
+        },
+      );
+
+      final data = Map<String, dynamic>.from(respuesta.data as Map);
+      final resultados = List<Map<String, dynamic>>.from(
+        (data['results'] as List<dynamic>? ?? <dynamic>[]).map(
+          (item) => Map<String, dynamic>.from(item as Map),
+        ),
+      );
+
+      return resultados
+          .map(
+            (item) => PeliculaResumen(
+              id: item['id'] as int? ?? 0,
+              titulo: _leerTexto(item['title'], fallback: 'Sin título'),
+              fechaEstreno: _leerTexto(item['release_date']),
+              imagen: _construirUrlImagen(item['poster_path']),
+            ),
+          )
+          .where((pelicula) => pelicula.id != 0)
+          .toList();
+    } on DioException catch (error) {
+      throw Exception(_traducirErrorDeRed(error));
+    }
   }
 
   Future<Pelicula> obtenerDetallePelicula(int idPelicula) async {
-    final detalle = await _dio.get(
-      '$_baseUrl/movie/$idPelicula',
-      queryParameters: {
-        'api_key': _apiKey,
-        'language': 'es-ES',
-      },
+    try {
+      final respuestas = await Future.wait([
+        _dio.get(
+          '$_baseUrl/movie/$idPelicula',
+          queryParameters: {'api_key': _apiKey, 'language': 'es-ES'},
+        ),
+        _dio.get(
+          '$_baseUrl/movie/$idPelicula/credits',
+          queryParameters: {'api_key': _apiKey, 'language': 'es-ES'},
+        ),
+      ]);
+
+      final detalle = Map<String, dynamic>.from(respuestas[0].data as Map);
+      final creditos = Map<String, dynamic>.from(respuestas[1].data as Map);
+
+      return Pelicula(
+        titulo: _leerTexto(detalle['title'], fallback: 'Sin título'),
+        anio: _extraerAnio(detalle['release_date']),
+        duracion: _extraerDuracion(detalle['runtime']),
+        genero: _extraerGeneros(detalle['genres']),
+        director: _extraerDirector(creditos['crew']),
+        sinopsis: _leerTexto(detalle['overview'], fallback: 'Sin sinopsis.'),
+        imagen: _construirUrlImagen(detalle['poster_path']),
+        rating: _leerDouble(detalle['vote_average']),
+      );
+    } on DioException catch (error) {
+      throw Exception(_traducirErrorDeRed(error));
+    }
+  }
+
+  String _extraerDirector(Object? crewRaw) {
+    final crew = List<Map<String, dynamic>>.from(
+      (crewRaw as List<dynamic>? ?? <dynamic>[]).map(
+        (item) => Map<String, dynamic>.from(item as Map),
+      ),
     );
 
-    final creditos = await _dio.get(
-      '$_baseUrl/movie/$idPelicula/credits',
-      queryParameters: {
-        'api_key': _apiKey,
-        'language': 'es-ES',
-      },
-    );
-
-    String director = 'No disponible';
-
-    for (var persona in creditos.data['crew']) {
+    for (final persona in crew) {
       if (persona['job'] == 'Director') {
-        director = persona['name'];
-        break;
+        return _leerTexto(persona['name'], fallback: 'No disponible');
       }
     }
 
-    String generos = '';
-    for (var genero in detalle.data['genres']) {
-      generos += '${genero['name']}, ';
-    }
+    return 'No disponible';
+  }
 
-    if (generos.isNotEmpty) {
-      generos = generos.substring(0, generos.length - 2);
-    } else {
-      generos = 'No disponible';
-    }
-
-    String anio = 'No disponible';
-
-    if (detalle.data['release_date'] != null &&
-        detalle.data['release_date'].toString().isNotEmpty) {
-      anio = detalle.data['release_date'].toString().split('-')[0];
-    }
-
-    String imagen = '';
-
-    if (detalle.data['poster_path'] != null) {
-      imagen = '$_imagenUrl${detalle.data['poster_path']}';
-    }
-
-    return Pelicula(
-      titulo: detalle.data['title'] ?? 'Sin título',
-      anio: anio,
-      duracion: '${detalle.data['runtime'] ?? 0} min',
-      genero: generos,
-      director: director,
-      sinopsis: detalle.data['overview'] ?? 'Sin sinopsis',
-      imagen: imagen,
-      rating: (detalle.data['vote_average'] ?? 0).toDouble(),
+  String _extraerGeneros(Object? genresRaw) {
+    final generos = List<Map<String, dynamic>>.from(
+      (genresRaw as List<dynamic>? ?? <dynamic>[]).map(
+        (item) => Map<String, dynamic>.from(item as Map),
+      ),
     );
+
+    if (generos.isEmpty) {
+      return 'No disponible';
+    }
+
+    return generos
+        .map((genero) => _leerTexto(genero['name']))
+        .where((nombre) => nombre.isNotEmpty)
+        .join(', ');
+  }
+
+  String _extraerAnio(Object? releaseDate) {
+    final fecha = _leerTexto(releaseDate);
+    if (fecha.isEmpty) {
+      return 'No disponible';
+    }
+
+    return fecha.split('-').first;
+  }
+
+  String _extraerDuracion(Object? runtime) {
+    final minutos = runtime is int ? runtime : int.tryParse('$runtime') ?? 0;
+    if (minutos <= 0) {
+      return 'No disponible';
+    }
+
+    return '$minutos min';
+  }
+
+  double _leerDouble(Object? value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse('$value') ?? 0;
+  }
+
+  String _leerTexto(Object? value, {String fallback = ''}) {
+    final texto = value?.toString().trim() ?? '';
+    return texto.isEmpty ? fallback : texto;
+  }
+
+  String _construirUrlImagen(Object? posterPath) {
+    final path = _leerTexto(posterPath);
+    if (path.isEmpty) {
+      return '';
+    }
+
+    return '$_imagenUrl$path';
+  }
+
+  String _traducirErrorDeRed(DioException error) {
+    if (error.response?.statusCode == 401) {
+      return 'TMDB rechazó la autenticación. Revisa la API key configurada.';
+    }
+
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout) {
+      return 'La conexión con TMDB tardó demasiado. Intenta nuevamente.';
+    }
+
+    if (error.type == DioExceptionType.connectionError) {
+      return 'No se pudo conectar con TMDB. Verifica tu red e inténtalo otra vez.';
+    }
+
+    return 'Ocurrió un error al consultar TMDB.';
   }
 }

@@ -1,6 +1,6 @@
 # 🎬 Practico 4 - Movies App
 
-Una aplicación Flutter para explorar películas usando la API de TMDB (The Movie Database). Busca películas, visualiza detalles y guarda tu historial de búsquedas.
+Una aplicación Flutter para explorar películas usando la API de TMDB (The Movie Database). Busca películas, resuelve su detalle completo al seleccionarlas, guarda ese snapshot en SQLite y permite revisar el historial local incluso volviendo a abrir el detalle desde la base local.
 
 ## 📋 Requisitos Previos
 
@@ -45,18 +45,18 @@ flutter run -d <device-id>
 lib/
 ├── main.dart                    # Punto de entrada
 ├── config/
-│   └── conn.dart              # Configuración de conexión API
+│   └── conn.dart              # Configuración de SQLite local
 ├── models/
 │   └── pelicula.dart          # Modelo de datos
 ├── services/
-│   └── tmdb_services.dart     # Servicio de API
+│   └── tmdb_services.dart     # Servicio HTTP para búsqueda y detalle en TMDB
 ├── repository/
-│   └── pelicula_repository.dart  # Gestión de datos
+│   └── pelicula_repository.dart  # Acceso a persistencia local de películas
 ├── screen/
 │   ├── home_screen.dart       # Pantalla principal
 │   ├── buscar_screen.dart     # Búsqueda de películas
 │   ├── detalle_screen.dart    # Detalles de película
-│   └── historial_screen.dart  # Historial de búsquedas
+│   └── historial_screen.dart  # Historial local de películas consultadas
 └── widgets/                    # Componentes reutilizables
 ```
 
@@ -66,7 +66,9 @@ Este proyecto usa la API de TMDB. Necesitas:
 
 1. Registrarte en [TMDB](https://www.themoviedb.org/)
 2. Obtener tu API Key
-3. Configurarla en `lib/config/conn.dart`
+3. Configurarla en `lib/services/tmdb_services.dart`
+
+> Nota: por simplicidad educativa, la API key está hoy dentro del servicio. Funciona para este práctico, pero en un proyecto real conviene moverla a una configuración segura.
 
 ## 🛠️ Comandos Útiles
 
