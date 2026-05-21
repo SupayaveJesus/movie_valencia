@@ -13,13 +13,18 @@ import '../services/tmdb_services.dart';
 /// historial a depender de red para mostrar algo que YA existe en SQLite.
 class DetalleScreen extends StatefulWidget {
   final int? idPelicula;
+  final String tipoMedia;
   final Pelicula? peliculaInicial;
 
-  const DetalleScreen({super.key, this.idPelicula, this.peliculaInicial})
-    : assert(
-        idPelicula != null || peliculaInicial != null,
-        'DetalleScreen requiere un id o una película local.',
-      );
+  const DetalleScreen({
+    super.key,
+    this.idPelicula,
+    this.tipoMedia = TipoMedia.pelicula,
+    this.peliculaInicial,
+  }) : assert(
+         idPelicula != null || peliculaInicial != null,
+         'DetalleScreen requiere un id o una película local.',
+       );
 
   @override
   State<DetalleScreen> createState() => _DetalleScreenState();
@@ -43,10 +48,12 @@ class _DetalleScreenState extends State<DetalleScreen> {
   Future<Pelicula> _cargarDetalleDesdeTmdb() async {
     final detalle = await _tmdbService.obtenerDetallePelicula(
       widget.idPelicula!,
+      widget.tipoMedia,
     );
 
     final peliculaParaHistorial = Pelicula(
       tmdbId: widget.idPelicula,
+      tipoMedia: widget.tipoMedia,
       titulo: detalle.titulo,
       anio: detalle.anio,
       duracion: detalle.duracion,
@@ -66,16 +73,8 @@ class _DetalleScreenState extends State<DetalleScreen> {
     return peliculaParaHistorial;
   }
 
-  String _describirOrigenDetalle(Pelicula pelicula) {
-    if (widget.peliculaInicial != null) {
-      return 'Detalle cargado desde el snapshot guardado en SQLite';
-    }
-
-    if (pelicula.tmdbId != null) {
-      return 'Detalle consultado desde TMDB y persistido en SQLite';
-    }
-
-    return 'Detalle de película';
+  String _tituloPantalla(Pelicula pelicula) {
+    return pelicula.esSerie ? 'Detalle de serie' : 'Detalle de película';
   }
 
   Widget _buildPoster(String imagenUrl) {
@@ -159,22 +158,24 @@ class _DetalleScreenState extends State<DetalleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Detalle de película')),
-      body: FutureBuilder<Pelicula>(
-        future: _detalleFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return FutureBuilder<Pelicula>(
+      future: _detalleFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-          if (snapshot.hasError) {
-            final mensaje = snapshot.error.toString().replaceFirst(
-              'Exception: ',
-              '',
-            );
+        if (snapshot.hasError) {
+          final mensaje = snapshot.error.toString().replaceFirst(
+            'Exception: ',
+            '',
+          );
 
-            return Center(
+          return Scaffold(
+            appBar: AppBar(title: const Text('Detalle')),
+            body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -199,17 +200,22 @@ class _DetalleScreenState extends State<DetalleScreen> {
                   ],
                 ),
               ),
-            );
-          }
+            ),
+          );
+        }
 
-          final pelicula = snapshot.data;
-          if (pelicula == null) {
-            return const Center(
-              child: Text('No se pudo cargar el detalle de la película.'),
-            );
-          }
+        final pelicula = snapshot.data;
+        if (pelicula == null) {
+          return const Scaffold(
+            body: Center(
+              child: Text('No se pudo cargar el detalle del contenido.'),
+            ),
+          );
+        }
 
-          return SingleChildScrollView(
+        return Scaffold(
+          appBar: AppBar(title: Text(_tituloPantalla(pelicula))),
+          body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,20 +226,15 @@ class _DetalleScreenState extends State<DetalleScreen> {
                   pelicula.titulo,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _describirOrigenDetalle(pelicula),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
                 const SizedBox(height: 16),
                 _buildMetadataCard(pelicula),
                 const SizedBox(height: 16),
                 _buildSynopsisCard(pelicula),
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

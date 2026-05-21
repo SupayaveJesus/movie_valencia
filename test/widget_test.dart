@@ -7,7 +7,7 @@ void main() {
     await tester.pumpWidget(const MyApp());
 
     expect(find.text('The Movie Database'), findsOneWidget);
-    expect(find.text('Buscar película'), findsOneWidget);
+    expect(find.text('Buscar contenido'), findsOneWidget);
     expect(find.text('Historial de búsqueda'), findsOneWidget);
   });
 }

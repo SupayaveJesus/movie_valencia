@@ -24,11 +24,12 @@ class _BuscarScreenState extends State<BuscarScreen> {
   final TmdbService _tmdbService = TmdbService();
   final PeliculaRepository _peliculaRepository = PeliculaRepository();
 
+  String _tipoMediaSeleccionado = TipoMedia.pelicula;
   List<PeliculaResumen> peliculas = [];
   bool cargando = false;
   bool busquedaRealizada = false;
   String? mensajeError;
-  int? peliculaAbriendoId;
+  String? peliculaAbriendoClave;
 
   @override
   void dispose() {
@@ -41,9 +42,11 @@ class _BuscarScreenState extends State<BuscarScreen> {
     final titulo = tituloController.text.trim();
     final anio = anioController.text.trim();
 
-    if (titulo.isEmpty) {
+    if (titulo.isEmpty && anio.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa un título antes de buscar.')),
+        const SnackBar(
+          content: Text('Ingresa un título, un año o ambos antes de buscar.'),
+        ),
       );
       return;
     }
@@ -55,7 +58,11 @@ class _BuscarScreenState extends State<BuscarScreen> {
     });
 
     try {
-      final resultados = await _tmdbService.buscarPeliculas(titulo, anio);
+      final resultados = await _tmdbService.buscarPeliculas(
+        titulo,
+        anio,
+        _tipoMediaSeleccionado,
+      );
 
       if (!mounted) {
         return;
@@ -80,12 +87,13 @@ class _BuscarScreenState extends State<BuscarScreen> {
 
   Future<void> irADetalle(PeliculaResumen resumen) async {
     setState(() {
-      peliculaAbriendoId = resumen.id;
+      peliculaAbriendoClave = resumen.claveUnica;
     });
 
     try {
       final detalleRemoto = await _tmdbService.obtenerDetallePelicula(
         resumen.id,
+        resumen.tipoMedia,
       );
 
       // Guardamos en ESTE punto porque acá la intención del usuario ya dejó de
@@ -94,6 +102,7 @@ class _BuscarScreenState extends State<BuscarScreen> {
       // detalle siguiente puede trabajar sobre un snapshot ya persistido.
       final peliculaLocal = Pelicula(
         tmdbId: resumen.id,
+        tipoMedia: resumen.tipoMedia,
         titulo: detalleRemoto.titulo,
         anio: detalleRemoto.anio,
         duracion: detalleRemoto.duracion,
@@ -132,7 +141,7 @@ class _BuscarScreenState extends State<BuscarScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          peliculaAbriendoId = null;
+          peliculaAbriendoClave = null;
         });
       }
     }
@@ -173,7 +182,7 @@ class _BuscarScreenState extends State<BuscarScreen> {
     if (!busquedaRealizada) {
       return const Center(
         child: Text(
-          'Escribe un título y toca Buscar para consultar TMDB.',
+          'Escribe un título, un año o ambos para consultar películas o series en TMDB.',
           textAlign: TextAlign.center,
         ),
       );
@@ -182,7 +191,7 @@ class _BuscarScreenState extends State<BuscarScreen> {
     if (peliculas.isEmpty) {
       return const Center(
         child: Text(
-          'No se encontraron películas con esos filtros.',
+          'No se encontraron resultados con esos filtros.',
           textAlign: TextAlign.center,
         ),
       );
@@ -210,17 +219,17 @@ class _BuscarScreenState extends State<BuscarScreen> {
             title: Text(pelicula.titulo),
             subtitle: Text(
               pelicula.fechaEstreno.isEmpty
-                  ? 'Fecha no disponible'
-                  : pelicula.fechaEstreno,
+                  ? pelicula.etiquetaTipo
+                  : '${pelicula.etiquetaTipo} · ${pelicula.fechaEstreno}',
             ),
-            trailing: peliculaAbriendoId == pelicula.id
+            trailing: peliculaAbriendoClave == pelicula.claveUnica
                 ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.chevron_right),
-            onTap: peliculaAbriendoId == null
+            onTap: peliculaAbriendoClave == null
                 ? () => irADetalle(pelicula)
                 : null,
           ),
@@ -233,7 +242,7 @@ class _BuscarScreenState extends State<BuscarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buscador de películas'),
+        title: const Text('Buscador de TMDB'),
         actions: [
           IconButton(onPressed: irAHistorial, icon: const Icon(Icons.history)),
         ],
@@ -246,6 +255,7 @@ class _BuscarScreenState extends State<BuscarScreen> {
               controller: tituloController,
               decoration: const InputDecoration(
                 labelText: 'Título',
+                hintText: 'Opcional si completas el año',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -255,8 +265,33 @@ class _BuscarScreenState extends State<BuscarScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: 'Año',
+                hintText: 'Opcional si completas el título',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: _tipoMediaSeleccionado,
+              decoration: const InputDecoration(
+                labelText: 'Tipo de contenido',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: TipoMedia.pelicula,
+                  child: Text('Películas'),
+                ),
+                DropdownMenuItem(value: TipoMedia.serie, child: Text('Series')),
+              ],
+              onChanged: (value) {
+                if (value == null) {
+                  return;
+                }
+
+                setState(() {
+                  _tipoMediaSeleccionado = value;
+                });
+              },
             ),
             const SizedBox(height: 10),
             ElevatedButton(

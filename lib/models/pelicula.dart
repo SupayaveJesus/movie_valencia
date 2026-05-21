@@ -1,3 +1,8 @@
+class TipoMedia {
+  static const String pelicula = 'movie';
+  static const String serie = 'tv';
+}
+
 /// Modelo usado para el detalle completo de la película y para persistir
 /// ese snapshot en la base local.
 ///
@@ -14,6 +19,7 @@ class Pelicula {
   /// duplicados en historial.
   final int? id;
   final int? tmdbId;
+  final String tipoMedia;
   final String titulo;
   final String anio;
   final String duracion;
@@ -27,6 +33,7 @@ class Pelicula {
   Pelicula({
     this.id,
     this.tmdbId,
+    this.tipoMedia = TipoMedia.pelicula,
     required this.titulo,
     required this.anio,
     required this.duracion,
@@ -42,6 +49,7 @@ class Pelicula {
     return {
       'id': id,
       'tmdb_id': tmdbId,
+      'tipo_media': tipoMedia,
       'titulo': titulo,
       'anio': anio,
       'duracion': duracion,
@@ -58,6 +66,7 @@ class Pelicula {
     return Pelicula(
       id: map['id'] as int?,
       tmdbId: map['tmdb_id'] as int?,
+      tipoMedia: (map['tipo_media'] as String?) ?? TipoMedia.pelicula,
       titulo: map['titulo'] as String,
       anio: map['anio'] as String,
       duracion: map['duracion'] as String,
@@ -73,6 +82,8 @@ class Pelicula {
           : DateTime.fromMillisecondsSinceEpoch(map['consultado_en'] as int),
     );
   }
+
+  bool get esSerie => tipoMedia == TipoMedia.serie;
 }
 
 /// Resultado liviano para la pantalla de búsqueda.
@@ -81,12 +92,14 @@ class Pelicula {
 /// detalle: id, título, fecha y poster. Nada más.
 class PeliculaResumen {
   final int id;
+  final String tipoMedia;
   final String titulo;
   final String fechaEstreno;
   final String imagen;
 
   const PeliculaResumen({
     required this.id,
+    required this.tipoMedia,
     required this.titulo,
     required this.fechaEstreno,
     required this.imagen,
@@ -99,4 +112,10 @@ class PeliculaResumen {
 
     return fechaEstreno.split('-').first;
   }
+
+  bool get esSerie => tipoMedia == TipoMedia.serie;
+
+  String get etiquetaTipo => esSerie ? 'Serie' : 'Película';
+
+  String get claveUnica => '$tipoMedia-$id';
 }

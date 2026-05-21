@@ -64,7 +64,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Historial de películas')),
+      appBar: AppBar(title: const Text('Historial de búsqueda')),
       body: FutureBuilder<List<Pelicula>>(
         future: _historialFuture,
         builder: (context, snapshot) {
@@ -118,12 +118,12 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Todavía no seleccionaste ninguna película.',
+                      'Todavía no consultaste ningún resultado.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Cuando selecciones una desde la búsqueda, quedará guardada acá.',
+                      'Cuando abras un detalle desde la búsqueda, quedará guardado acá.',
                       style: Theme.of(context).textTheme.bodySmall,
                       textAlign: TextAlign.center,
                     ),
@@ -170,7 +170,9 @@ class _HistorialScreenState extends State<HistorialScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('${pelicula.anio} · ${pelicula.duracion}'),
+                          Text(
+                            '${pelicula.esSerie ? 'Serie' : 'Película'} · ${pelicula.anio} · ${pelicula.duracion}',
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             _formatearFecha(pelicula.consultadoEn),

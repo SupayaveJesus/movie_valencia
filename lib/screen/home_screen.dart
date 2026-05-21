@@ -8,18 +8,14 @@ class HomeScreen extends StatelessWidget {
   void irABuscar(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const BuscarScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const BuscarScreen()),
     );
   }
 
   void irAHistorial(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const HistorialScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const HistorialScreen()),
     );
   }
 
@@ -34,28 +30,22 @@ class HomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Icon(
-              Icons.movie_creation_outlined,
-              size: 100,
-            ),
+            const Icon(Icons.movie_creation_outlined, size: 100),
             const SizedBox(height: 20),
             const Text(
-              'Cliente de películas',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              'Cliente de películas y series',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             const Text(
-              'Busca películas por título o año y guarda tu historial localmente.',
+              'Busca películas o series por título, por año o por ambos y guarda tu historial localmente.',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30),
             ElevatedButton.icon(
               onPressed: () => irABuscar(context),
               icon: const Icon(Icons.search),
-              label: const Text('Buscar película'),
+              label: const Text('Buscar contenido'),
             ),
             const SizedBox(height: 10),
             ElevatedButton.icon(
